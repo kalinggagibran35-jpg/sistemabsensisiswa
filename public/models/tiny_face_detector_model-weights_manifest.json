@@ -1,0 +1,6 @@
+[{
+  "weights": [
+    {"name": "tiny_face_detector_model-shard1", "size": 0, "shape": [1]}
+  ],
+  "manifest": []
+}]

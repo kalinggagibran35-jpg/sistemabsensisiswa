@@ -1,0 +1,6 @@
+[{
+  "weights": [
+    {"name": "face_expression_model-shard1", "size": 0, "shape": [1]}
+  ],
+  "manifest": []
+}]

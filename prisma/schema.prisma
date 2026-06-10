@@ -1,0 +1,339 @@
+// School Attendance System with Face Recognition
+// Prisma Schema - SQLite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE USER MODELS
+// ============================================
+
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  password   String
+  name       String
+  role       String    // admin, wali_kelas, guru_bk, siswa
+  photo_url  String?
+  phone      String?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  // Relations
+  student     Student?
+  teacher     Teacher?
+  counselor   Counselor?
+  notifications Notification[]
+  activity_logs ActivityLog[]
+
+  @@index([role])
+}
+
+model Student {
+  id                 String    @id @default(cuid())
+  user_id            String    @unique
+  nis                String    @unique
+  class_id           String
+  parent_whatsapp    String?
+  face_registered    Boolean   @default(false)
+  face_descriptor_url String?
+  status             String    @default("active") // active, archived
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  // Relations
+  user         User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  class        Class      @relation(fields: [class_id], references: [id])
+  attendances  Attendance[]
+  leave_requests LeaveRequest[]
+  face_descriptors FaceDescriptor[]
+  audit_logs   StudentAuditLog[]
+
+  @@index([class_id])
+  @@index([status])
+}
+
+model Teacher {
+  id         String   @id @default(cuid())
+  user_id    String   @unique
+  phone      String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  user          User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  class_teachers ClassTeacher[]
+  approved_leaves LeaveRequest[] @relation("ApprovedByWali")
+
+  @@index([user_id])
+}
+
+model Counselor {
+  id         String   @id @default(cuid())
+  user_id    String   @unique
+  phone      String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// ACADEMIC STRUCTURE
+// ============================================
+
+model Class {
+  id               String   @id @default(cuid())
+  name             String
+  major            String
+  academic_year_id String
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  // Relations
+  academic_year    AcademicYear     @relation(fields: [academic_year_id], references: [id])
+  students         Student[]
+  class_teachers   ClassTeacher[]
+  attendance_locations AttendanceLocation[]
+
+  @@index([academic_year_id])
+}
+
+model ClassTeacher {
+  id         String   @id @default(cuid())
+  class_id   String
+  teacher_id String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  class   Class   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@unique([class_id, teacher_id])
+}
+
+model AcademicYear {
+  id         String   @id @default(cuid())
+  name       String   // e.g. "2025/2026"
+  is_active  Boolean  @default(false)
+  is_archived Boolean @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  classes Class[]
+}
+
+// ============================================
+// ATTENDANCE
+// ============================================
+
+model AttendanceLocation {
+  id            String   @id @default(cuid())
+  name          String
+  latitude      Float
+  longitude     Float
+  radius_meters Int
+  class_id      String?  // optional, for assigning to specific class
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  class     Class?    @relation(fields: [class_id], references: [id])
+  qr_codes  QRCode[]
+}
+
+model Attendance {
+  id             String   @id @default(cuid())
+  student_id     String
+  date           String   // YYYY-MM-DD
+  check_in_time  String   // HH:mm
+  check_out_time String?  // HH:mm, optional
+  status         String   // hadir, terlambat, tidak_hadir, izin, sakit
+  method         String   // face, qr, manual
+  latitude       Float?
+  longitude      Float?
+  notes          String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([date])
+  @@index([status])
+}
+
+model LeaveRequest {
+  id                  String   @id @default(cuid())
+  student_id          String
+  type                String   // izin, sakit
+  reason              String
+  evidence_url        String?
+  start_date          String   // YYYY-MM-DD
+  end_date            String   // YYYY-MM-DD
+  status              String   @default("pending") // pending, approved_wali_kelas, approved_admin, rejected
+  approved_by_wali_id String?
+  approved_by_admin_id String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  // Relations
+  student        Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  approved_wali  Teacher? @relation("ApprovedByWali", fields: [approved_by_wali_id], references: [id])
+
+  @@index([student_id])
+  @@index([status])
+}
+
+model QRCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  location_id String?
+  expires_at  String   // ISO datetime string
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  // Relations
+  location AttendanceLocation? @relation(fields: [location_id], references: [id])
+
+  @@index([code])
+  @@index([is_active])
+}
+
+// ============================================
+// REPORTING
+// ============================================
+
+model ReportSchedule {
+  id               String   @id @default(cuid())
+  name             String
+  type             String   // daily, weekly
+  send_time        String   // HH:mm
+  day_of_week      String?  // e.g. "monday", for weekly
+  recipient_type   String   // orangtua, wali_kelas, both
+  class_filter     String?  // optional class filter
+  template_message String?
+  status           String   @default("active") // active, paused, inactive
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  // Relations
+  logs ReportScheduleLog[]
+}
+
+model ReportScheduleLog {
+  id           String   @id @default(cuid())
+  schedule_id  String
+  sent_at      String   // ISO datetime string
+  status       String   // berhasil, gagal
+  total_sent   Int      @default(0)
+  total_failed Int      @default(0)
+  details      String?  // JSON string with details
+  created_at   DateTime @default(now())
+
+  // Relations
+  schedule ReportSchedule @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+
+  @@index([schedule_id])
+}
+
+// ============================================
+// NOTIFICATIONS & LOGGING
+// ============================================
+
+model Notification {
+  id         String   @id @default(cuid())
+  user_id    String
+  title      String
+  message    String
+  type       String   // info, warning, success, error
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([is_read])
+}
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  user_id       String?
+  user_name     String
+  user_role     String
+  activity_type String
+  details       String?
+  created_at    DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([activity_type])
+  @@index([created_at])
+}
+
+model StudentAuditLog {
+  id              String   @id @default(cuid())
+  student_id      String
+  changed_by_id   String?
+  changed_by_name String
+  field_name      String
+  old_value       String?
+  new_value       String?
+  created_at      DateTime @default(now())
+
+  // Relations
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([field_name])
+}
+
+// ============================================
+// SETTINGS & HOLIDAYS
+// ============================================
+
+model Settings {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Holiday {
+  id         String   @id @default(cuid())
+  date       String   // YYYY-MM-DD
+  name       String
+  created_at DateTime @default(now())
+
+  @@index([date])
+}
+
+// ============================================
+// FACE RECOGNITION
+// ============================================
+
+model FaceDescriptor {
+  id              String   @id @default(cuid())
+  student_id      String
+  descriptor_data String   // JSON stored face descriptor
+  created_at      DateTime @default(now())
+
+  // Relations
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+}
