@@ -1,13 +1,14 @@
 import { PrismaClient } from '@prisma/client'
+import { withAccelerate } from '@prisma/extension-accelerate'
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+  prisma: ReturnType<typeof makePrismaClient> | undefined
 }
 
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query'] : [],
-  })
+function makePrismaClient() {
+  return new PrismaClient().$extends(withAccelerate())
+}
+
+export const db = globalForPrisma.prisma ?? makePrismaClient()
 
 globalForPrisma.prisma = db
