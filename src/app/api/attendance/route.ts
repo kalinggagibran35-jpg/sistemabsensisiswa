@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = requireRole(request, ['admin', 'wali_kelas'])
+    const auth = requireRole(request, ['admin', 'wali_kelas', 'siswa'])
     if (!auth.authorized) {
       return auth.error === 'Unauthorized' ? unauthorizedResponse() : forbiddenResponse()
     }
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = requireRole(request, ['admin', 'wali_kelas'])
+    const auth = requireRole(request, ['admin', 'wali_kelas', 'siswa'])
     if (!auth.authorized) {
       return auth.error === 'Unauthorized' ? unauthorizedResponse() : forbiddenResponse()
     }
@@ -259,7 +259,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = requireRole(request, ['admin', 'wali_kelas'])
+    const auth = requireRole(request, ['admin', 'wali_kelas', 'siswa'])
     if (!auth.authorized) {
       return auth.error === 'Unauthorized' ? unauthorizedResponse() : forbiddenResponse()
     }
