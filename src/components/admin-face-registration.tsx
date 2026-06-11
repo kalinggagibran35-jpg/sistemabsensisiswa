@@ -199,7 +199,7 @@ export default function AdminFaceRegistration() {
       const res = await fetch(`/api/students?id=${selectedStudentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ face_registered: true }),
+        body: JSON.stringify({ id: selectedStudentId, face_registered: true }),
       })
       const json = await res.json()
 
