@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         totalClasses,
         totalTeachers,
       ] = await Promise.all([
-        db.student.count({ where: { status: 'active' } }),
+        db.student.count({ where: { status: 'active' }, cacheStrategy: { ttl: 60 } }),
         db.attendance.findMany({
           where: { date: todayStr },
           select: { status: true, student_id: true },
@@ -123,8 +123,8 @@ export async function GET(request: NextRequest) {
           },
         }),
         db.leaveRequest.count({ where: { status: 'pending' } }),
-        db.class.count(),
-        db.teacher.count(),
+        db.class.count({ cacheStrategy: { ttl: 300 } }),
+        db.teacher.count({ cacheStrategy: { ttl: 300 } }),
       ])
 
       const hadirToday = todayAttendance.filter((a) => a.status === 'hadir').length
