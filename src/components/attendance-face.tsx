@@ -42,7 +42,10 @@ export default function AttendanceFace() {
       const res = await fetch('/api/attendance-locations', { headers: getAuthHeaders() })
       const json = await res.json()
       if (json.success) {
-        return json.data as AttendanceLocationType[]
+        return json.data.map((loc: any) => ({
+  ...loc,
+  radiusMeters: loc.radiusMeters ?? loc.radius_meters,
+})) as AttendanceLocationType[]
       }
     } catch {
       // ignore
